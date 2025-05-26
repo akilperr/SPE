@@ -5,7 +5,7 @@ defmodule Spe.MixProject do
     [
       app: :spe,
       version: "0.1.0",
-      elixir: "~> 1.18",
+      elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -21,7 +21,7 @@ defmodule Spe.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-	    {:phoenix_pubsub, "~> 2.1.3"},
+      {:phoenix_pubsub, "~> 2.1.3"}
     ]
   end
 end
