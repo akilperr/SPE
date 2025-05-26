@@ -1,6 +1,7 @@
 defmodule SPE do
   use Supervisor
 
+
   def start_link(options) do
     Supervisor.start_link(__MODULE__, options, name: __MODULE__)
   end
@@ -17,6 +18,11 @@ defmodule SPE do
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
+  end
+
+
+  def submit_job(job_description) do
+    GenServer.call(SPE.Server, {:submit_job, job_description})
   end
 
 
@@ -64,15 +70,23 @@ defmodule SPE do
     alias SPE.TaskDef
 
     def validate_job(job_description) do
-      tasks = Map.get(job_description, "tasks", [])
+      if is_map(job_description) do
 
-      validated_tasks = Enum.map(tasks, &TaskDef.normalize_task/1)
+        tasks = Map.get(job_description, "tasks")
+        if tasks == %{} do
+          {:error, :invalid_job_no_task}
+        end
 
-      if Enum.any?(validated_tasks, fn t -> t == {:error, :invalid_task} end) do
-        {:error, :invalid_job}
+        validated_tasks = Enum.map(tasks, &TaskDef.normalize_task/1)
+
+        if Enum.any?(validated_tasks, fn t -> t == {:error, :invalid_task} end) do
+          {:error, :invalid_job}
+        else
+          task_names = Enum.map(validated_tasks, fn t -> t["name"] end)
+          validate_task_dependencies(validated_tasks, task_names)
+        end
       else
-        task_names = Enum.map(validated_tasks, fn t -> t["name"] end)
-        validate_task_dependencies(validated_tasks, task_names)
+        {:error, :invalid_job_not_map}
       end
     end
 
