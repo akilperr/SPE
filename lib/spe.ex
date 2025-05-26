@@ -1,17 +1,24 @@
-defmodule Spe do
-  @moduledoc """
-  Documentation for `Spe`.
-  """
+defmodule SPE do
+  use Supervisor
 
-  @doc """
-  Hello world.
+  def start_link(options) do
+    Supervisor.start_link(__MODULE__, options, name: __MODULE__)
+  end
 
-  ## Examples
+  def init(options) do
+    num_workers = Keyword.get(options, :num_workers, :infinity)
 
-      iex> Spe.hello()
-      :world
+    children = [
+      # Inicia Phoenix.PubSub
+      {Phoenix.PubSub, name: SPE.PubSub},
 
-  """
+      # Inicia el GenServer principal que maneja los jobs
+      {SPE.Server, %{num_workers: num_workers}}
+    ]
+
+    Supervisor.init(children, strategy: :one_for_one)
+  end
+
 
   defmodule TaskDef do
   @moduledoc """
@@ -54,7 +61,7 @@ defmodule Spe do
   This module manages the jobs validation (synthactically correct)
   """
 
-    alias Spe.TaskDef
+    alias SPE.TaskDef
 
     def validate_job(job_description) do
       tasks = Map.get(job_description, "tasks", [])
@@ -77,6 +84,7 @@ defmodule Spe do
       end
     end
   end
+
 
 
 end
