@@ -9,7 +9,7 @@ defmodule SpeTest do
 
   # Tasks validation tests
   describe "TaskDef.normalize_task/1" do
-    test "Validates correct task" do
+    test "TaskDef 1 - Validates correct task" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end}
 
       assert TaskDef.normalize_task(task) == %{
@@ -20,22 +20,22 @@ defmodule SpeTest do
              }
     end
 
-    test "Verifies validation fails if incorrect name" do
+    test "TaskDef 2 - Verifies validation fails if incorrect name" do
       task = %{"exec" => fn _ -> 1 + 2 end}
       assert TaskDef.normalize_task(task) == {:error, :invalid_task_name}
     end
 
-    test "Verifies if validation fails with wrong arity" do
+    test "TaskDef 3 - Verifies if validation fails with wrong arity" do
       task = %{"name" => "task1", "exec" => fn -> 1 + 2 end}
       assert TaskDef.normalize_task(task) == {:error, :invalid_task_exec}
     end
 
-    test "Verifies if validation fails with incorrect timeout" do
+    test "TaskDef 4 - Verifies if validation fails with incorrect timeout" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end, "timeout" => -5}
       assert TaskDef.normalize_task(task) == {:error, :invalid_task_timeout}
     end
 
-    test "Verifies validation fails with incorrect enables list" do
+    test "TaskDef 5 - Verifies validation fails with incorrect enables list" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end, "enables" => "task2"}
       assert TaskDef.normalize_task(task) == {:error, :invalid_task_enables}
     end
@@ -43,7 +43,7 @@ defmodule SpeTest do
 
   # Jobs validation test
   describe "JobValidator.validate_job/1" do
-    test "Verifies if validation succeeds with correct job" do
+    test "JobValidator 1 - Verifies if validation succeeds with correct job" do
       job = %{"name" => "job1",
         "tasks" => [
           %{"name" => "task1", "exec" => fn _ -> 1 end},
@@ -69,7 +69,7 @@ defmodule SpeTest do
                 ]}
     end
 
-    test "Verifies if validation fails with an incorrect task" do
+    test "JobValidator 2 - Verifies if validation fails with an incorrect task" do
       job = %{
         "name" => "hola",
         "tasks" => [
@@ -82,7 +82,7 @@ defmodule SpeTest do
       assert JobValidator.validate_job(job) == {:error, :invalid_task_name}
     end
 
-    test "Veifies if validation fails with incoherent dependencies" do
+    test "JobValidator 3 - Verifies if validation fails with incoherent dependencies" do
       job = %{"name" => "test_job",
         "tasks" => [
           %{"name" => "task1", "exec" => fn _ -> 1 end},
@@ -96,17 +96,17 @@ defmodule SpeTest do
 
   # SPE.start_link/1 validation tests
   describe "SPE.start_link/1" do
-    test "starts SPE with no options" do
+    test "start_link 1 - starts SPE with no options" do
       assert {:ok, sup} = SPE.start_link([])
       assert :ok = Supervisor.stop(sup)
     end
 
-    test "starts SPE with num_workers option" do
+    test "start_link 2 -starts SPE with num_workers option" do
       assert {:ok, sup} = SPE.start_link(num_workers: 2)
       assert :ok = Supervisor.stop(sup)
     end
 
-    test "fails if SPE is already started" do
+    test "start_link 3 - fails if SPE is already started" do
       assert {:ok, _pid} = SPE.start_link([])
       assert {:error, {:already_started, _}} = SPE.start_link([])
     end
@@ -114,6 +114,22 @@ defmodule SpeTest do
   end
 
   # SPE.submit_job/1 validation tests
+  describe "submit_job/1 custom tests" do
+
+    test "submit_job 1 - accepts minimal valid job" do
+      start_supervised!({SPE, []})
+      task = %{
+        "name" => "t1",
+        "exec" => fn _ -> 42 end
+      }
+      job = %{
+        "name" => "my_job",
+        "tasks" => [task]
+      }
+      assert {:ok, _job_id} = SPE.submit_job(job)
+    end
+
+  end
 
 
   # SPE.start_job/1 validation tests

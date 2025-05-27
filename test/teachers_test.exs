@@ -3,8 +3,8 @@ defmodule SPETest do
 
   use ExUnit.Case, async: false
 
+  
   @tag :submit_bad_jobs
-
   test "submit_bad_jobs" do
     assert {:ok, sup} = SPE.start_link([])
     assert {:error, _} = SPE.submit_job("bad")
@@ -33,6 +33,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :submit_good_job
   test "submit_good_job" do
     assert {:ok, sup} = SPE.start_link([])
@@ -41,8 +42,8 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
-  @tag :submit_good_jobs
 
+  @tag :submit_good_jobs
   test "submit_good_jobs" do
     assert {:ok, sup} = SPE.start_link([])
     task = %{"name" => "t0", "enables" => [], "exec" => fn _ -> 1 + 2 end, "timeout" => :infinity}
@@ -66,6 +67,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :start_job2
   test "start_job2" do
     assert {:ok, sup} = SPE.start_link([])
@@ -79,6 +81,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :start_job3
   test "start_job3" do
@@ -98,6 +101,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :start_job4
   test "start_job4" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
@@ -116,8 +120,8 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
-  @tag :start_job5
 
+  @tag :start_job5
   test "start_job5" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
 
@@ -147,6 +151,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :failing
   test "start_job_failing" do
@@ -198,6 +203,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :job_enables1
   test "job_enables1" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
@@ -226,6 +232,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, job_id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :job_enables_fails
   test "job_enables_fails" do
@@ -257,6 +264,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :job_enables_timeout
   test "job_enables_timeout" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
@@ -286,6 +294,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :job_enables2
   test "job_enables2" do
@@ -328,6 +337,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :job_enables_transitive
   test "job_enables_transitive" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
@@ -366,6 +376,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :timeout_job1
   test "timeout_job1" do
     assert {:ok, sup} = SPE.start_link([])
@@ -395,6 +406,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :big_test
   test "big_test" do
     assert {:ok, sup} = SPE.start_link([])
@@ -420,6 +432,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :big_job_test
   test "big_job_test" do
@@ -465,6 +478,7 @@ defmodule SPETest do
     Enum.each(job_ids, fn job_id -> Phoenix.PubSub.unsubscribe(SPE.PubSub, job_id) end)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :multiple_jobs
   test "multiple_jobs" do
@@ -526,6 +540,7 @@ defmodule SPETest do
     assert :ok = Supervisor.stop(sup)
   end
 
+
   @tag :task_timing1
   test "task_timing1" do
     assert {:ok, sup} = SPE.start_link(num_workers: 1)
@@ -576,6 +591,7 @@ defmodule SPETest do
     Phoenix.PubSub.unsubscribe(SPE.PubSub, id)
     assert :ok = Supervisor.stop(sup)
   end
+
 
   @tag :task_timing2
   test "task_timing2" do
