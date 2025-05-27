@@ -93,4 +93,30 @@ defmodule SpeTest do
       assert JobValidator.validate_job(job) == {:error, :invalid_dependencies}
     end
   end
+
+  # SPE.start_link/1 validation tests
+  describe "SPE.start_link/1" do
+    test "starts SPE with no options" do
+      assert {:ok, sup} = SPE.start_link([])
+      assert :ok = Supervisor.stop(sup)
+    end
+
+    test "starts SPE with num_workers option" do
+      assert {:ok, sup} = SPE.start_link(num_workers: 2)
+      assert :ok = Supervisor.stop(sup)
+    end
+
+    test "fails if SPE is already started" do
+      assert {:ok, _pid} = SPE.start_link([])
+      assert {:error, {:already_started, _}} = SPE.start_link([])
+      assert :ok = Supervisor.stop(sup)
+    end
+
+  end
+
+  # SPE.submit_job/1 validation tests
+  
+
+  # SPE.start_job/1 validation tests
+
 end
