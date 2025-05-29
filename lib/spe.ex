@@ -22,6 +22,9 @@ defmodule SPE do
     GenServer.call(SPE.Server, {:submit_job, job_description})
   end
 
+  def start_job(job_id) do
+    GenServer.call(SPE.Server, {:start_job, job_id})
+  end
 
   defmodule TaskDef do
     def normalize_task(task) when is_map(task) do
@@ -78,19 +81,19 @@ defmodule SPE do
     end
 
     defp validate_structure(%{"name" => name}) when not is_binary(name) do
-      {:error, :invalid_job_structure_1}
+      {:error, :job_name_not_a_string}
     end
 
     defp validate_structure(%{"name" => ""}) do
-      {:error, :invalid_job_structure_2}
+      {:error, :job_name_empty}
     end
 
     defp validate_structure(%{}) do
-      {:error, :invalid_job_structure_3}
+      {:error, :missing_tasks_key}
     end
 
     defp validate_structure(_) do
-      {:error, :invalid_job_structure_4}
+      {:error, :invalid_job_format}
     end
 
     defp validate_tasks([]) do
@@ -143,9 +146,10 @@ defmodule SPE do
     end
 
     defp valid_enables?(enables, all_task_names) do
-    Enum.all?(enables, fn task_name ->
-      task_name in all_task_names
-    end)
+      Enum.all?(enables, fn task_name ->
+        task_name in all_task_names
+      end)
+    end
   end
-  end
+
 end
