@@ -5,10 +5,8 @@ defmodule SPE.Server do
     GenServer.start_link(__MODULE__, state, name: __MODULE__)
   end
 
-
   alias SPE.JobValidator
 
-  # Public function (puedes omitir si solo usas desde SPE.ex)
   def submit_job(job_description) do
     GenServer.call(__MODULE__, {:submit_job, job_description})
   end
@@ -97,6 +95,8 @@ defmodule SPE.Server do
     end
   end
 
+
+  
   defp collect_results(results, 0), do: results
 
   defp collect_results(results, remaining) do
@@ -105,7 +105,6 @@ defmodule SPE.Server do
         collect_results(Map.put(results, task_name, result), remaining - 1)
     end
   end
-
 
   defp now, do: System.system_time(:millisecond)
 
