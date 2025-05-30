@@ -10,8 +10,8 @@ defmodule SPE.Server do
     task_results: %{}
   ]
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(options) do
+    GenServer.start_link(__MODULE__, options, name: __MODULE__)
   end
 
   def init(state) do

@@ -1,8 +1,8 @@
 defmodule SPE.TaskWorker do
   use GenServer
 
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args)
+  def start_link(options) do
+    GenServer.start_link(__MODULE__, options, name: __MODULE__)
   end
 
   def init(%{job_id: job_id, task: task, dependencies: dependencies}) do

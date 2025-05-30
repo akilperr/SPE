@@ -1,6 +1,6 @@
 defmodule SpeTest do
   use ExUnit.Case
-  alias SPE.TaskDef
+  alias SPE.Task
   alias SPE.JobValidator
   require Logger
   use ExUnit.Case, async: false
@@ -8,11 +8,11 @@ defmodule SpeTest do
   doctest SPE
 
   # Tasks validation tests
-  describe "TaskDef.normalize_task/1" do
+  describe "Task.normalize_task/1" do
     test "1 - Validates correct task" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end}
 
-      assert TaskDef.normalize_task(task) == %{
+      assert Task.normalize_task(task) == %{
                "name" => "task1",
                "exec" => task["exec"],
                "enables" => [],
@@ -22,22 +22,22 @@ defmodule SpeTest do
 
     test "2 - Verifies validation fails if incorrect name" do
       task = %{"exec" => fn _ -> 1 + 2 end}
-      assert TaskDef.normalize_task(task) == {:error, :invalid_task_name}
+      assert Task.normalize_task(task) == {:error, :invalid_task_name}
     end
 
     test "3 - Verifies if validation fails with wrong arity" do
       task = %{"name" => "task1", "exec" => fn -> 1 + 2 end}
-      assert TaskDef.normalize_task(task) == {:error, :invalid_task_exec}
+      assert Task.normalize_task(task) == {:error, :invalid_task_exec}
     end
 
     test "4 - Verifies if validation fails with incorrect timeout" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end, "timeout" => -5}
-      assert TaskDef.normalize_task(task) == {:error, :invalid_task_timeout}
+      assert Task.normalize_task(task) == {:error, :invalid_task_timeout}
     end
 
     test "5 - Verifies validation fails with incorrect enables list" do
       task = %{"name" => "task1", "exec" => fn _ -> 1 + 2 end, "enables" => "task2"}
-      assert TaskDef.normalize_task(task) == {:error, :invalid_task_enables}
+      assert Task.normalize_task(task) == {:error, :invalid_task_enables}
     end
   end
 
@@ -114,7 +114,7 @@ defmodule SpeTest do
   end
 
   # SPE.submit_job/1 validation tests
-  describe "submit_job/1 custom tests" do
+  describe "1 custom tests" do
 
     test "1 - accepts minimal valid job" do
       {:ok, _sup} = SPE.start_link([])
@@ -130,7 +130,7 @@ defmodule SpeTest do
       Supervisor.stop(SPE)
     end
 
-    test "submit_job 2 - rejects job with duplicate task names" do
+    test "2 - rejects job with duplicate task names" do
       {:ok, _sup} = SPE.start_link([])
       task1 = %{"name" => "t1", "exec" => fn _ -> 1 end}
       task2 = %{"name" => "t1", "exec" => fn _ -> 2 end}  # mismo nombre
@@ -139,6 +139,17 @@ defmodule SpeTest do
         "tasks" => [task1, task2]
       }
       assert {:error, :invalid_tasks} = SPE.submit_job(job)
+      Supervisor.stop(SPE)
+    end
+
+    test "3 - allows submitting multiple jobs" do
+      {:ok, _sup} = SPE.start_link([])
+      task = %{"name" => "t1", "exec" => fn _ -> 1 end}
+      job = %{"name" => "job", "tasks" => [task]}
+
+      assert {:ok, job_id1} = SPE.submit_job(job)
+      assert {:ok, job_id2} = SPE.submit_job(job)
+      assert job_id1 != job_id2
       Supervisor.stop(SPE)
     end
 
@@ -163,7 +174,7 @@ defmodule SpeTest do
         ]
       }
       {:ok, job_id} = SPE.submit_job(job)
-      assert :ok = SPE.start_job(job_id)
+      assert {:ok, ^job_id} = SPE.start_job(job_id)
       assert {:error, :job_already_started} = SPE.start_job(job_id)
       Supervisor.stop(SPE)
     end
@@ -177,15 +188,14 @@ defmodule SpeTest do
         ]
       }
       {:ok, job_id} = SPE.submit_job(job)
-      assert :ok = SPE.start_job(job_id)
+      assert {:ok, ^job_id} = SPE.start_job(job_id)
       # Recuperamos el estado interno para verificar que se actualizó
       state = :sys.get_state(SPE.Server)
       job_data = Map.get(state.jobs, job_id)
-      assert job_data.status == :started
+      assert job_data.status == :running
       Supervisor.stop(SPE)
     end
 
   end
-
 
 end
