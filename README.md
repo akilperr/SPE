@@ -7,7 +7,6 @@
 SPE is a job processing engine implemented in Elixir. It allows users to define and execute jobs composed of multiple tasks with possible dependencies between them. Tasks are executed concurrently when possible, following dependency constraints, using all parallel execution as possible and managing task errors.
 
 The system is built using core OTP components like `GenServer` and `Supervisor`, and uses `Phoenix.PubSub` to publish task and job execution events.
-
 ---
 
 ## Project Structure
@@ -35,7 +34,7 @@ The system is built using core OTP components like `GenServer` and `Supervisor`,
 - `.gitignore`: files and folders excluded from version control.
 - `AUTHORS`: list of project contributors with UPM emails.
 - `erl_crash.dump`: crash log created by Erlang VM (only if a failure occurs).
-- `mix.exs`: Mix project definition with dependencies and entry point.
+- `mix.exs`: mix project definition with dependencies and entry point.
 - `mix.lock`: dependency lock file for reproducible builds.
 - `README.md`: main documentation for building, testing, and using the project.
 - `presentation.pdf`: A file including presentation slides, which summarize implementation details, project structure and testing methodology, also pointing out faced challenges and future possible improvements.
