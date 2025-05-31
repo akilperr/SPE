@@ -2,28 +2,20 @@ defmodule SPE.TaskWorker do
   use GenServer
 
   def start_link(options) do
-    GenServer.start_link(__MODULE__, options, name: __MODULE__)
+    GenServer.start_link(__MODULE__, options)
   end
 
   def init(%{server_pid: server_pid, job_id: job_id, task: task, dependencies: dependencies}) do
     # Filter dependencies to only include the ones this task depends on
     Process.flag(:trap_exit, true)
+    Process.flag(:priority, :low)
 
-    task_ref =
-      if task["timeout"] == :infinity do
-        Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
-          execute_task(task, dependencies)
-        end)
-      else
-        Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
-          Task.yield(
-            Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
-              execute_task(task, dependencies)
-            end),
-            task["timeout"]
-          ) || {:exit, :timeout}
-        end)
-      end
+
+   task_ref = Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
+    # Add small delay to prevent resource contention
+    Process.sleep(1)
+    execute_task(task, dependencies)
+  end)
 
     {:ok, %{server_pid: server_pid, job_id: job_id, task: task, task_ref: task_ref}}
   end
@@ -42,6 +34,7 @@ defmodule SPE.TaskWorker do
   end
 
   defp execute_task(task, dependencies) do
+  #  IO.inspect({:execute_task, task["name"], dependencies}, label: "TaskWorker")
   try do
     case task["exec"].(dependencies) do
       result when is_integer(result) -> {:result, result}
@@ -56,7 +49,7 @@ defmodule SPE.TaskWorker do
 end
 
 defp report_result(server_pid, job_id, task_name, result) do
-    IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
+    # IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
 
     case result do
       {:exit, :timeout} ->
@@ -75,4 +68,11 @@ defp report_result(server_pid, job_id, task_name, result) do
         )
     end
   end
+
+  def terminate(_reason, state) do
+  if state.task_ref && Process.alive?(state.task_ref.pid) do
+    Task.shutdown(state.task_ref, :brutal_kill)
+  end
+  :ok
+end
 end

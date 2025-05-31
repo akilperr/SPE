@@ -7,9 +7,18 @@ defmodule SPE.WorkerSupervisor do
 
   def init(:ok) do
     children = [
-      {Task.Supervisor, name: SPE.TaskWorkerSupervisor},
-      {DynamicSupervisor, name: SPE.TaskSupervisor, strategy: :one_for_one}
-    ]
+    {Task.Supervisor,
+     name: SPE.TaskWorkerSupervisor,
+     max_restarts: 1000,  # Increase from default
+     max_seconds: 5
+    },
+    {DynamicSupervisor,
+     name: SPE.TaskSupervisor,
+     strategy: :one_for_one,
+     max_restarts: 1000,  # Increase from default
+     max_seconds: 5
+    }
+  ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end

@@ -74,7 +74,7 @@ defmodule SPE.JobValidator do
   defp validate_task_dependencies(tasks) do
     task_names = Enum.map(tasks, & &1["name"])
     dag = build_dag(tasks)
-    IO.inspect(dag, label: "DAG")
+    # IO.inspect(dag, label: "DAG")
 
     if Enum.all?(tasks, fn t -> Enum.all?(t["enables"], &(&1 in task_names)) end) do
       if is_dag?(dag) do

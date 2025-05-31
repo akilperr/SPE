@@ -410,7 +410,8 @@ defmodule SPETest do
   @tag :big_test
   test "big_test" do
     assert {:ok, sup} = SPE.start_link([])
-    limit = 3
+    limit = 100
+
 
     tasks =
       for i <- 1..limit do

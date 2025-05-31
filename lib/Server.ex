@@ -7,7 +7,8 @@ defmodule SPE.Server do
     jobs: %{},
     running_tasks: 0,
     pending_tasks: %{},
-    task_results: %{}
+    task_results: %{},
+    executing_tasks: %{}
   ]
 
   def start_link(opts) do
@@ -15,13 +16,15 @@ defmodule SPE.Server do
   end
 
   def init(state) do
+
     {:ok,
      %__MODULE__{
        num_workers: state.num_workers,
        jobs: %{},
        running_tasks: 0,
        pending_tasks: %{},
-       task_results: %{}
+       task_results: %{},
+       executing_tasks: %{}
      }}
   end
 
@@ -67,7 +70,7 @@ defmodule SPE.Server do
             dag[task["name"]] == []
           end)
 
-        #IO.inspect(initial_tasks, label: "Initial tasks for job #{job_id}")
+        # IO.inspect(initial_tasks, label: "Initial tasks for job #{job_id}")
 
         # Update job status
         new_jobs = Map.put(state.jobs, job_id, %{job | status: :running})
@@ -83,6 +86,8 @@ defmodule SPE.Server do
   end
 
   def handle_info({:task_completed, job_id, task_name, result}, state) do
+      :erlang.garbage_collect(self())
+
     time = :erlang.monotonic_time(:millisecond)
 
     Phoenix.PubSub.local_broadcast(
@@ -97,7 +102,7 @@ defmodule SPE.Server do
     if already_done do
       {:noreply, state}
     else
-     # IO.inspect({:server_received, job_id, task_name, result}, label: "Server")
+      # IO.inspect({:server_received, job_id, task_name, result}, label: "Server")
 
       # Update results and running task count
       new_results =
@@ -122,48 +127,64 @@ defmodule SPE.Server do
 
       new_pending = Map.put(state.pending_tasks, job_id, new_pending_tasks)
 
-      job = state.jobs[job_id]
-      results = new_results[job_id] || %{}
+      # IO.inspect(new_pending, label: "Pending tasks after completion")
+      # IO.inspect(new_results, label: "Task results after completion")
 
-      ready_tasks =
-        job.tasks
-        |> Enum.filter(fn task ->
-          dependencies = job.dag[task["name"]]
+      executing = Map.get(state.executing_tasks, job_id, MapSet.new())
+    new_executing = Map.put(state.executing_tasks, job_id, MapSet.delete(executing, task_name))
 
-          # Task hasn't completed yet
-          # All dependencies are completed successfully
-          not Map.has_key?(results, task["name"]) and
-            Enum.all?(dependencies, &match?({:result, _}, results[&1]))
-        end)
+    job = state.jobs[job_id]
+    results = new_results[job_id] || %{}
+    executing_names = MapSet.to_list(Map.get(state.executing_tasks, job_id, MapSet.new()))
+    pending_names = Map.get(state.pending_tasks, job_id, []) |> Enum.map(& &1["name"])
 
+    ready_tasks =
+      job.tasks
+      |> Enum.filter(fn task ->
+        dependencies = job.dag[task["name"]]
+        not Map.has_key?(results, task["name"]) and
+          Enum.all?(dependencies, &match?({:result, _}, results[&1])) and
+          not (task["name"] in pending_names) and
+          not (task["name"] in executing_names)
+      end)
       # IO.inspect(ready_tasks, label: "Ready tasks after completion")
 
       new_pending2 =
-        Map.update(new_pending, job_id, ready_tasks, fn old -> old ++ ready_tasks end)
+      Map.update(new_pending, job_id, ready_tasks, fn old ->
+        old ++ Enum.reject(ready_tasks, fn t -> Enum.any?(old, &(&1["name"] == t["name"])) end)
+      end)
+        # IO.inspect({:task_completed, job_id, task_name, result}, label: "SERVER")
+        # IO.inspect(new_pending2, label: "Pending tasks after completion")
+        # IO.inspect(new_results, label: "Task results after completion")
+        # IO.inspect(new_executing, label: "Executing tasks after completion")
+
+
+
 
       new_state = %{
-        state
-        | running_tasks: new_running,
-          task_results: new_results,
-          pending_tasks: new_pending2
-      }
+      state
+      | running_tasks: new_running,
+        task_results: new_results,
+        pending_tasks: new_pending2,
+        executing_tasks: new_executing
+    }
 
       job_completed = check_job_completion(job_id, new_state)
 
-      # IO.inspect(
-      #   %{
-      #     job_id: job_id,
-      #     results: new_state.task_results[job_id],
-      #     pending: Map.get(new_state.pending_tasks, job_id, []),
-      #     tasks: Enum.map(new_state.jobs[job_id].tasks, & &1["name"])
-      #   },
-      #   label: "DEBUG job state before completion check"
-      # )
+      #  IO.inspect(
+      #    %{
+      #      job_id: job_id,
+      #      results: new_state.task_results[job_id],
+      #      pending: Map.get(new_state.pending_tasks, job_id, []),
+      #      tasks: Enum.map(new_state.jobs[job_id].tasks, & &1["name"])
+      #    },
+      #    label: "DEBUG job state before completion check"
+      #  )
 
       job = new_state.jobs[job_id]
 
       if job_completed and job.status != :completed do
-        IO.inspect({:broadcasting_final_result, job_id}, label: "Server")
+        # IO.inspect({:broadcasting_final_result, job_id}, label: "Server")
         final_results = compile_job_results(job_id, new_state)
 
         status =
@@ -183,32 +204,14 @@ defmodule SPE.Server do
         {:noreply, schedule_tasks(new_state)}
       end
     end
+
+
+
   end
 
   defp remove_task(pending_tasks, job_id, task) do
     Map.update!(pending_tasks, job_id, fn tasks ->
       Enum.reject(tasks, &(&1["name"] == task["name"]))
-    end)
-  end
-
-  defp find_ready_task(state) do
-    Enum.find_value(state.pending_tasks, fn {job_id, tasks} ->
-      Enum.find(tasks, fn task ->
-        job = state.jobs[job_id]
-        results = state.task_results[job_id] || %{}
-        dependencies = job.dag[task["name"]]
-
-        Enum.all?(dependencies, fn dep ->
-          case results[dep] do
-            {:result, _} -> true
-            _ -> false
-          end
-        end)
-      end)
-      |> case do
-        nil -> nil
-        task -> {job_id, task}
-      end
     end)
   end
 
@@ -221,36 +224,55 @@ defmodule SPE.Server do
         :infinity -> 1_000_000_000
         n -> n
       end
+    if state.running_tasks > max_workers * 0.75 do
+    Process.sleep(5)
+  end
 
-    new_state =
-      Enum.reduce_while(1..max_workers, state, fn _, acc ->
-        case find_ready_task(acc) do
-          nil ->
-            {:halt, acc}
+    # 1. Recorre todas las tareas pendientes y selecciona las que están listas
+    ready =
+    for {job_id, tasks} <- state.pending_tasks,
+        task <- tasks,
+        state.running_tasks < max_workers,
+        job = state.jobs[job_id],
+        results = state.task_results[job_id] || %{},
+        dependencies = job.dag[task["name"]],
+        executing = MapSet.to_list(Map.get(state.executing_tasks, job_id, MapSet.new())),
+        not (task["name"] in executing),
+        Enum.all?(dependencies, fn dep -> match?({:result, _}, results[dep]) end) do
+      {job_id, task}
+    end
+    # IO.inspect(ready, label: "READY tasks to launch")
 
-          {job_id, task} ->
-            if acc.running_tasks < max_workers do
-              dep_map =
-                (acc.task_results[job_id] || %{})
-                |> Enum.filter(fn {_k, v} -> match?({:result, _}, v) end)
-                |> Enum.map(fn {k, {:result, v}} -> {k, v} end)
-                |> Map.new()
+    # 2. Lanza solo las tareas listas, y elimina todas de pending_tasks antes de lanzar
+    {new_state, _} =
+      Enum.reduce(ready, {state, 0}, fn {job_id, task}, {acc, count} ->
+        if acc.running_tasks + count < max_workers do
+          dep_map =
+            (acc.task_results[job_id] || %{})
+            |> Enum.filter(fn {_k, v} -> match?({:result, _}, v) end)
+            |> Enum.map(fn {k, {:result, v}} -> {k, v} end)
+            |> Map.new()
 
-              IO.inspect(dep_map, label: "Dependencies for task #{task["name"]}")
-              Process.sleep(5)
+          # Elimina la tarea de pending_tasks antes de lanzar el worker
+          new_pending = remove_task(acc.pending_tasks, job_id, task)
+          executing = Map.get(acc.executing_tasks, job_id, MapSet.new())
+          new_executing = Map.put(acc.executing_tasks, job_id, MapSet.put(executing, task["name"]))
 
-              {:ok, _pid} =
-                  SPE.WorkerSupervisor.start_task(self(), job_id, task, dep_map)
+          new_acc = %{acc | pending_tasks: new_pending, executing_tasks: new_executing}
+            Process.sleep(10)
+            # IO.inspect({:launching, job_id, task["name"], executing: MapSet.to_list(executing)}, label: "LAUNCH")
+            # IO.inspect(new_acc.executing_tasks, label: "Executing tasks after launch")
+            # IO.inspect(new_acc.pending_tasks, label: "Pending tasks after launch")
+          {:ok, _pid} =
+            SPE.WorkerSupervisor.start_task(self(), job_id, task, dep_map)
 
-              new_pending = remove_task(acc.pending_tasks, job_id, task)
-              {:cont, %{acc | running_tasks: acc.running_tasks + 1, pending_tasks: new_pending}}
-            else
-              {:halt, acc}
-            end
+          {%{new_acc | running_tasks: new_acc.running_tasks + 1}, count + 1}
+        else
+          {acc, count}
         end
       end)
 
-    # --- NUEVO: Forzar comprobación de finalización si no hay tareas ejecutándose ni listas ---
+    # --- Forzar comprobación de finalización si no hay tareas ejecutándose ni listas ---
     jobs_to_check =
       new_state.jobs
       |> Map.keys()
@@ -271,10 +293,6 @@ defmodule SPE.Server do
               do: :failed,
               else: :succeeded
 
-          # IO.inspect({:broadcasting_final_result, job_id, status, final_results},
-          #   label: "FORCED FINAL RESULT"
-          # )
-
           Phoenix.PubSub.local_broadcast(
             SPE.PubSub,
             job_id,
@@ -290,7 +308,6 @@ defmodule SPE.Server do
 
     final_state
   end
-
 
   defp check_job_completion(job_id, state) do
     job = state.jobs[job_id]
@@ -363,4 +380,8 @@ defmodule SPE.Server do
   defp make_job_id do
     :erlang.unique_integer([:positive]) |> Integer.to_string()
   end
+
+  def terminate(reason, _state) do
+  Logger.debug("TaskWorker terminating with reason: #{inspect(reason)}")
+end
 end
