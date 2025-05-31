@@ -99,7 +99,6 @@ defmodule SPE.JobValidator do
     end
   end
 
-
   defp is_dag?(%{}) do
     true
   end

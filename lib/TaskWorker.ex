@@ -1,7 +1,6 @@
 defmodule SPE.TaskWorker do
   use GenServer
 
-
   def child_spec(args) do
     %{
       id: __MODULE__,
@@ -19,60 +18,85 @@ defmodule SPE.TaskWorker do
     Process.flag(:trap_exit, true)
     Process.flag(:priority, :low)
 
-      time = :erlang.monotonic_time(:millisecond)
+    time = :erlang.monotonic_time(:millisecond)
 
+    Phoenix.PubSub.local_broadcast(
+      SPE.PubSub,
+      job_id,
+      {:spe, time, {job_id, :task_started, task["name"]}}
+    )
 
-  # BROADCAST task_started
-  Phoenix.PubSub.local_broadcast(
-    SPE.PubSub,
-    job_id,
-    {:spe, time, {job_id, :task_started, task["name"]}}
-  )
+    task_ref =
+      Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
+        Process.sleep(1)
+        execute_task(task, dependencies)
+      end)
 
-   task_ref = Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
-    # Add small delay to prevent resource contention
-    Process.sleep(1)
-    execute_task(task, dependencies)
-  end)
+    timeout =
+      case Map.get(task, "timeout", :infinity) do
+        :infinity ->
+          nil
 
-    {:ok, %{server_pid: server_pid, job_id: job_id, task: task, task_ref: task_ref}}
-  end
-  def init (_args) do
-    {:stop, :invalid_args}
+        t when is_integer(t) and t > 0 ->
+          Process.send_after(self(), {:timeout, task_ref.ref}, t)
+      end
+
+    {:ok,
+     %{
+       server_pid: server_pid,
+       job_id: job_id,
+       task: task,
+       task_ref: task_ref,
+       timeout_timer: timeout
+     }}
   end
 
   def handle_info({ref, result}, state) when ref == state.task_ref.ref do
-    # Task completed normally
+    if state.timeout_timer, do: Process.cancel_timer(state.timeout_timer)
+
     Process.demonitor(ref, [:flush])
-    report_result(state.server_pid,state.job_id, state.task["name"], result)
+    report_result(state.server_pid, state.job_id, state.task["name"], result)
     {:stop, :normal, state}
   end
 
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) when ref == state.task_ref.ref do
+    if state.timeout_timer, do: Process.cancel_timer(state.timeout_timer)
+
     # Task crashed
-    report_result(state.server_pid,state.job_id, state.task["name"], {:failed, {:crashed, reason}})
+    report_result(
+      state.server_pid,
+      state.job_id,
+      state.task["name"],
+      {:failed, {:crashed, reason}}
+    )
+
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:timeout, ref}, state) when ref == state.task_ref.ref do
+    # Timeout triggered, kill the task and report timeout
+    Task.shutdown(state.task_ref, :brutal_kill)
+    report_result(state.server_pid, state.job_id, state.task["name"], {:exit, :timeout})
     {:stop, :normal, state}
   end
 
   defp execute_task(task, dependencies) do
-  #  IO.inspect({:execute_task, task["name"], dependencies}, label: "TaskWorker")
-  try do
-    case task["exec"].(dependencies) do
-      result when is_integer(result) -> {:result, result}
-      other -> {:failed, {:invalid_return, other}}
+    #  IO.inspect({:execute_task, task["name"], dependencies}, label: "TaskWorker")
+    try do
+      case task["exec"].(dependencies) do
+        result when is_integer(result) -> {:result, result}
+        other -> {:failed, {:invalid_return, other}}
+      end
+    rescue
+      e -> {:failed, {:exception, Exception.message(e)}}
+    catch
+      :exit, reason -> {:failed, {:exit, reason}}
+      what, value -> {:failed, {:throw, {what, value}}}
     end
-  rescue
-    e -> {:failed, {:exception, Exception.message(e)}}
-  catch
-    :exit, reason -> {:failed, {:exit, reason}}
-    what, value -> {:failed, {:throw, {what, value}}}
   end
-end
 
-defp report_result(server_pid, job_id, task_name, result) do
+  defp report_result(server_pid, job_id, task_name, result) do
     # IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
-
-      time = :erlang.monotonic_time(:millisecond)
 
     case result do
       {:exit, :timeout} ->
@@ -93,9 +117,10 @@ defp report_result(server_pid, job_id, task_name, result) do
   end
 
   def terminate(_reason, state) do
-  if state.task_ref && Process.alive?(state.task_ref.pid) do
-    Task.shutdown(state.task_ref, :brutal_kill)
+    if state.task_ref && Process.alive?(state.task_ref.pid) do
+      Task.shutdown(state.task_ref, :brutal_kill)
+    end
+
+    :ok
   end
-  :ok
-end
 end

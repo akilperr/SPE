@@ -7,23 +7,22 @@ defmodule SPE.WorkerSupervisor do
 
   def init(:ok) do
     children = [
-    {Task.Supervisor,
-     name: SPE.TaskWorkerSupervisor,
-     max_restarts: 1000,  # Increase from default
-     max_seconds: 5
-    },
-    {DynamicSupervisor,
-     name: SPE.TaskSupervisor,
-     strategy: :one_for_one,
-     max_restarts: 1000,  # Increase from default
-     max_seconds: 5
-    }
-  ]
+      {
+        Task.Supervisor,
+        # Increase from default
+        name: SPE.TaskWorkerSupervisor, max_restarts: 1000, max_seconds: 5
+      },
+      {
+        DynamicSupervisor,
+        # Increase from default
+        name: SPE.TaskSupervisor, strategy: :one_for_one, max_restarts: 1000, max_seconds: 5
+      }
+    ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  def start_task(server_pid,job_id, task, dependencies) do
+  def start_task(server_pid, job_id, task, dependencies) do
     task_args = %{
       server_pid: server_pid,
       job_id: job_id,
