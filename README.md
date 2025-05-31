@@ -38,6 +38,7 @@ The system is built using core OTP components like `GenServer` and `Supervisor`,
 - `mix.exs`: Mix project definition with dependencies and entry point.
 - `mix.lock`: dependency lock file for reproducible builds.
 - `README.md`: main documentation for building, testing, and using the project.
+- `presentation.pdf`: A file including presentation slides, which summarize implementation details, project structure and testing methodology, also pointing out faced challenges and future possible improvements.
 
 ---
 
