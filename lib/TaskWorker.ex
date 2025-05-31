@@ -1,6 +1,15 @@
 defmodule SPE.TaskWorker do
   use GenServer
 
+
+  def child_spec(args) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [args]},
+      restart: :temporary
+    }
+  end
+
   def start_link(options) do
     GenServer.start_link(__MODULE__, options)
   end
@@ -10,6 +19,15 @@ defmodule SPE.TaskWorker do
     Process.flag(:trap_exit, true)
     Process.flag(:priority, :low)
 
+      time = :erlang.monotonic_time(:millisecond)
+
+
+  # BROADCAST task_started
+  Phoenix.PubSub.local_broadcast(
+    SPE.PubSub,
+    job_id,
+    {:spe, time, {job_id, :task_started, task["name"]}}
+  )
 
    task_ref = Task.Supervisor.async_nolink(SPE.TaskWorkerSupervisor, fn ->
     # Add small delay to prevent resource contention
@@ -18,6 +36,9 @@ defmodule SPE.TaskWorker do
   end)
 
     {:ok, %{server_pid: server_pid, job_id: job_id, task: task, task_ref: task_ref}}
+  end
+  def init (_args) do
+    {:stop, :invalid_args}
   end
 
   def handle_info({ref, result}, state) when ref == state.task_ref.ref do
@@ -50,6 +71,8 @@ end
 
 defp report_result(server_pid, job_id, task_name, result) do
     # IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
+
+      time = :erlang.monotonic_time(:millisecond)
 
     case result do
       {:exit, :timeout} ->
