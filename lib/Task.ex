@@ -1,4 +1,12 @@
 defmodule SPE.Task do
+
+  @moduledoc """
+  Defines and validates individual tasks within a job.
+
+  Ensures each task has a valid structure, including name, function,
+  dependencies, and timeout configuration.
+  """
+
   def normalize_task(task) when is_map(task) do
     with {:ok, name} <- validate_name(Map.get(task, "name")),
          {:ok, exec} <- validate_exec(Map.get(task, "exec")),

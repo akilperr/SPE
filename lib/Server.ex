@@ -2,6 +2,13 @@ defmodule SPE.Server do
   use GenServer
   alias SPE.{JobValidator}
 
+  @moduledoc """
+  Central GenServer responsible for managing job lifecycle and scheduling.
+
+  Handles submission, validation, dependency analysis, and dispatching
+  tasks according to the job's DAG.
+  """
+
   defstruct [
     :num_workers,
     jobs: %{},
@@ -27,7 +34,6 @@ defmodule SPE.Server do
      }}
   end
 
-  # Callback
   def handle_call({:submit_job, job_description}, _from, state) do
     case JobValidator.validate_job(job_description) do
       {:ok, validated_tasks} ->
@@ -65,21 +71,15 @@ defmodule SPE.Server do
 
         initial_tasks =
           Enum.filter(job.tasks, fn task ->
-            # Tasks with no dependencies (can run first)
             dag[task["name"]] == []
           end)
 
-        # IO.inspect(initial_tasks, label: "Initial tasks for job #{job_id}")
-
-        # Update job status
         new_jobs = Map.put(state.jobs, job_id, %{job | status: :running})
 
-        # Add initial tasks to pending
         new_pending = Map.put(state.pending_tasks, job_id, initial_tasks)
 
         new_state = %{state | jobs: new_jobs, pending_tasks: new_pending}
 
-        # Start processing tasks
         {:reply, {:ok, job_id}, schedule_tasks(new_state)}
     end
   end
@@ -95,15 +95,12 @@ defmodule SPE.Server do
       {:spe, time, {job_id, :task_terminated, task_name}}
     )
 
-    # Evita procesar dos veces la misma tarea (por crashes brutales)
     already_done = Map.get(state.task_results, job_id, %{}) |> Map.has_key?(task_name)
 
     if already_done do
       {:noreply, state}
     else
-      # IO.inspect({:server_received, job_id, task_name, result}, label: "Server")
 
-      # Update results and running task count
       new_results =
         Map.update(
           state.task_results,
@@ -114,7 +111,6 @@ defmodule SPE.Server do
 
       new_running = max(state.running_tasks - 1, 0)
 
-      # Remove finished task from pending (if present)
       pending = Map.get(state.pending_tasks, job_id, [])
 
       new_pending_tasks =
@@ -125,9 +121,6 @@ defmodule SPE.Server do
         end
 
       new_pending = Map.put(state.pending_tasks, job_id, new_pending_tasks)
-
-      # IO.inspect(new_pending, label: "Pending tasks after completion")
-      # IO.inspect(new_results, label: "Task results after completion")
 
       executing = Map.get(state.executing_tasks, job_id, MapSet.new())
       new_executing = Map.put(state.executing_tasks, job_id, MapSet.delete(executing, task_name))
@@ -205,7 +198,6 @@ defmodule SPE.Server do
   end
 
   defp schedule_tasks(state) do
-    # IO.inspect(state, label: "Scheduling tasks with state")
     state = %{state | running_tasks: max(state.running_tasks, 0)}
 
     max_workers =
@@ -258,7 +250,6 @@ defmodule SPE.Server do
 
         {:ok, _pid} = SPE.WorkerSupervisor.start_task(self(), job_id, task, dep_map)
 
-        # Llama recursivamente para lanzar la siguiente tarea (si hay)
         schedule_tasks(new_state)
     end
   end
@@ -312,7 +303,6 @@ defmodule SPE.Server do
   end
 
   defp build_task_map(tasks) do
-    # First create basic map of name->task
     task_map =
       tasks
       |> Enum.reduce(%{}, fn task, acc ->
@@ -334,4 +324,5 @@ defmodule SPE.Server do
   defp make_job_id do
     :erlang.unique_integer([:positive]) |> Integer.to_string()
   end
+
 end

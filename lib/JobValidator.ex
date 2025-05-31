@@ -2,7 +2,11 @@ defmodule SPE.JobValidator do
   alias SPE.Task
 
   @moduledoc """
-  This module manages the jobs validation (synthactically correct)
+  Handles validation of job descriptions and dependency analysis.
+
+  This module ensures that a submitted job is syntactically correct, that all tasks
+  are well-formed, and that task dependencies are valid and acyclic. It also builds
+  a Directed Acyclic Graph (DAG) used to determine task execution order.
   """
 
   def validate_job(job_description) do
@@ -74,7 +78,6 @@ defmodule SPE.JobValidator do
   defp validate_task_dependencies(tasks) do
     task_names = Enum.map(tasks, & &1["name"])
     dag = build_dag(tasks)
-    # IO.inspect(dag, label: "DAG")
 
     if Enum.all?(tasks, fn t -> Enum.all?(t["enables"], &(&1 in task_names)) end) do
       if is_dag?(dag) do
@@ -147,4 +150,5 @@ defmodule SPE.JobValidator do
 
     do_topological_sort(updated_counts, dag, ready_nodes ++ result)
   end
+
 end

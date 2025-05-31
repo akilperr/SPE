@@ -1,6 +1,13 @@
 defmodule SPE.TaskWorker do
   use GenServer
 
+  @moduledoc """
+  Worker module that executes a single task in isolation.
+
+  Receives task and its dependencies, runs it, and reports the result
+  back to the main server. Handles exceptions and timeouts gracefully.
+  """
+
   def child_spec(args) do
     %{
       id: __MODULE__,
@@ -14,7 +21,6 @@ defmodule SPE.TaskWorker do
   end
 
   def init(%{server_pid: server_pid, job_id: job_id, task: task, dependencies: dependencies}) do
-    # Filter dependencies to only include the ones this task depends on
     Process.flag(:trap_exit, true)
     Process.flag(:priority, :low)
 
@@ -62,7 +68,6 @@ defmodule SPE.TaskWorker do
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) when ref == state.task_ref.ref do
     if state.timeout_timer, do: Process.cancel_timer(state.timeout_timer)
 
-    # Task crashed
     report_result(
       state.server_pid,
       state.job_id,
@@ -74,14 +79,12 @@ defmodule SPE.TaskWorker do
   end
 
   def handle_info({:timeout, ref}, state) when ref == state.task_ref.ref do
-    # Timeout triggered, kill the task and report timeout
     Task.shutdown(state.task_ref, :brutal_kill)
     report_result(state.server_pid, state.job_id, state.task["name"], {:exit, :timeout})
     {:stop, :normal, state}
   end
 
   defp execute_task(task, dependencies) do
-    #  IO.inspect({:execute_task, task["name"], dependencies}, label: "TaskWorker")
     try do
       case task["exec"].(dependencies) do
         result when is_integer(result) -> {:result, result}
@@ -96,7 +99,6 @@ defmodule SPE.TaskWorker do
   end
 
   defp report_result(server_pid, job_id, task_name, result) do
-    # IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
 
     case result do
       {:exit, :timeout} ->
@@ -123,4 +125,5 @@ defmodule SPE.TaskWorker do
 
     :ok
   end
+
 end

@@ -1,6 +1,13 @@
 defmodule SPE do
   use Supervisor
 
+  @moduledoc """
+  Main public interface of SPE.
+
+  Provides high-level functions for starting the system,
+  submitting jobs, and triggering execution.
+  """
+
   def start_link(options) do
     Supervisor.start_link(__MODULE__, options, name: __MODULE__)
   end
