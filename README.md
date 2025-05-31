@@ -26,8 +26,9 @@ The system is built using core OTP components like `GenServer` and `Supervisor`,
   - `WorkerSupervisor.ex`: supervises running task workers.
 
 - `test/`: test suite
-  - `spe_test.exs`: custom tests covering core logic and validation.
-  - `teachers_test.exs`: official test cases from instructors, supports `@tag` filtering.
+  - `our_tests.exs`: custom tests covering core logic and validation.
+  - `spe_test.exs`: official test cases from instructors
+  - `spe_test_with_tag.exs`: official test cases from instructors, supports `@tag` filtering.
   - `test_helper.exs`: shared configuration for test setup.
 
 - `.formatter.exs`: Elixir formatting configuration for `mix format`.
