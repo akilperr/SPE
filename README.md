@@ -1,4 +1,4 @@
-# SPE – School Process Engine
+# SPE
 
 > Universidad Politécnica de Madrid · Programming Scalable Systems · 2024-2025
 
@@ -26,8 +26,9 @@ The system is built using core OTP components like `GenServer` and `Supervisor`,
   - `WorkerSupervisor.ex`: supervises running task workers.
 
 - `test/`: test suite
-  - `spe_test.exs`: custom tests covering core logic and validation.
-  - `teachers_test.exs`: official test cases from instructors, supports `@tag` filtering.
+  - `our_tests.exs`: custom tests covering core logic and validation.
+  - `spe_test.exs`: official test cases from instructors
+  - `spe_test_with_tag.exs`: official test cases from instructors, supports `@tag` filtering.
   - `test_helper.exs`: shared configuration for test setup.
 
 - `.formatter.exs`: Elixir formatting configuration for `mix format`.
@@ -69,13 +70,13 @@ mix test
 To run only a specific test file (e.g. your custom tests or teacher tests):
 
 ```bash
+mix test test/our_tests.exs
 mix test test/spe_test.exs
-mix test test/teachers_test.exs
 ```
 
 ### Running a single test using tags
 
-In `teachers_test.exs`, `@tag` annotations are added to help debug individual cases:
+In `spe_test_with_tag.exs`, `@tag` annotations are added to help debug individual cases:
 
 ```elixir
 @tag :submit_good_jobs
