@@ -1,5 +1,4 @@
 defmodule SPE.Task do
-
   @moduledoc """
   Defines and validates individual tasks within a job.
 

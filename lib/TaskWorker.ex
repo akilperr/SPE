@@ -99,7 +99,6 @@ defmodule SPE.TaskWorker do
   end
 
   defp report_result(server_pid, job_id, task_name, result) do
-
     case result do
       {:exit, :timeout} ->
         send(server_pid, {:task_completed, job_id, task_name, {:failed, :timeout}})
@@ -125,5 +124,4 @@ defmodule SPE.TaskWorker do
 
     :ok
   end
-
 end

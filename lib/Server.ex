@@ -100,7 +100,6 @@ defmodule SPE.Server do
     if already_done do
       {:noreply, state}
     else
-
       new_results =
         Map.update(
           state.task_results,
@@ -324,5 +323,4 @@ defmodule SPE.Server do
   defp make_job_id do
     :erlang.unique_integer([:positive]) |> Integer.to_string()
   end
-
 end

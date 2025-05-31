@@ -150,5 +150,4 @@ defmodule SPE.JobValidator do
 
     do_topological_sort(updated_counts, dag, ready_nodes ++ result)
   end
-
 end
