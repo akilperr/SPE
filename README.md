@@ -1,4 +1,4 @@
-# SPE – School Process Engine
+# SPE
 
 > Universidad Politécnica de Madrid · Programming Scalable Systems · 2024-2025
 
