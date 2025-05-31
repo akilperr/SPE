@@ -70,13 +70,13 @@ mix test
 To run only a specific test file (e.g. your custom tests or teacher tests):
 
 ```bash
+mix test test/our_tests.exs
 mix test test/spe_test.exs
-mix test test/teachers_test.exs
 ```
 
 ### Running a single test using tags
 
-In `teachers_test.exs`, `@tag` annotations are added to help debug individual cases:
+In `spe_test_with_tag.exs`, `@tag` annotations are added to help debug individual cases:
 
 ```elixir
 @tag :submit_good_jobs
