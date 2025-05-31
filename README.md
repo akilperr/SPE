@@ -4,7 +4,7 @@
 
 ## Description
 
-SPE is a job processing engine implemented in Elixir. It allows users to define and execute jobs composed of multiple tasks with potential dependencies between them. Tasks are executed concurrently when possible, following dependency constraints.
+SPE is a job processing engine implemented in Elixir. It allows users to define and execute jobs composed of multiple tasks with possible dependencies between them. Tasks are executed concurrently when possible, following dependency constraints, using all parallel execution as possible and managing task errors.
 
 The system is built using core OTP components like `GenServer` and `Supervisor`, and uses `Phoenix.PubSub` to publish task and job execution events.
 
