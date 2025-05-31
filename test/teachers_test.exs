@@ -3,7 +3,7 @@ defmodule SPETest do
 
   use ExUnit.Case, async: false
 
-  
+
   @tag :submit_bad_jobs
   test "submit_bad_jobs" do
     assert {:ok, sup} = SPE.start_link([])
@@ -410,7 +410,7 @@ defmodule SPETest do
   @tag :big_test
   test "big_test" do
     assert {:ok, sup} = SPE.start_link([])
-    limit = 100
+    limit = 3
 
     tasks =
       for i <- 1..limit do

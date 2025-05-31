@@ -10,8 +10,8 @@ defmodule SPE.Server do
     task_results: %{}
   ]
 
-  def start_link(options) do
-    GenServer.start_link(__MODULE__, options, name: __MODULE__)
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   def init(state) do
@@ -67,7 +67,7 @@ defmodule SPE.Server do
             dag[task["name"]] == []
           end)
 
-        IO.inspect(initial_tasks, label: "Initial tasks for job #{job_id}")
+        #IO.inspect(initial_tasks, label: "Initial tasks for job #{job_id}")
 
         # Update job status
         new_jobs = Map.put(state.jobs, job_id, %{job | status: :running})
@@ -97,7 +97,7 @@ defmodule SPE.Server do
     if already_done do
       {:noreply, state}
     else
-      IO.inspect({:server_received, job_id, task_name, result}, label: "Server")
+     # IO.inspect({:server_received, job_id, task_name, result}, label: "Server")
 
       # Update results and running task count
       new_results =
@@ -136,7 +136,7 @@ defmodule SPE.Server do
             Enum.all?(dependencies, &match?({:result, _}, results[&1]))
         end)
 
-      IO.inspect(ready_tasks, label: "Ready tasks after completion")
+      # IO.inspect(ready_tasks, label: "Ready tasks after completion")
 
       new_pending2 =
         Map.update(new_pending, job_id, ready_tasks, fn old -> old ++ ready_tasks end)
@@ -150,15 +150,15 @@ defmodule SPE.Server do
 
       job_completed = check_job_completion(job_id, new_state)
 
-      IO.inspect(
-        %{
-          job_id: job_id,
-          results: new_state.task_results[job_id],
-          pending: Map.get(new_state.pending_tasks, job_id, []),
-          tasks: Enum.map(new_state.jobs[job_id].tasks, & &1["name"])
-        },
-        label: "DEBUG job state before completion check"
-      )
+      # IO.inspect(
+      #   %{
+      #     job_id: job_id,
+      #     results: new_state.task_results[job_id],
+      #     pending: Map.get(new_state.pending_tasks, job_id, []),
+      #     tasks: Enum.map(new_state.jobs[job_id].tasks, & &1["name"])
+      #   },
+      #   label: "DEBUG job state before completion check"
+      # )
 
       job = new_state.jobs[job_id]
 
@@ -213,7 +213,7 @@ defmodule SPE.Server do
   end
 
   defp schedule_tasks(state) do
-    IO.inspect(state, label: "Scheduling tasks with state")
+    # IO.inspect(state, label: "Scheduling tasks with state")
     state = %{state | running_tasks: max(state.running_tasks, 0)}
 
     max_workers =
@@ -230,20 +230,17 @@ defmodule SPE.Server do
 
           {job_id, task} ->
             if acc.running_tasks < max_workers do
-              job = acc.jobs[job_id]
-              deps = job.dag[task["name"]]
-
               dep_map =
- (acc.task_results[job_id] || %{})
-|> Enum.filter(fn {_k, v} -> match?({:result, _}, v) end)
-|> Enum.map(fn {k, {:result, v}} -> {k, v} end)
-|> Map.new()
+                (acc.task_results[job_id] || %{})
+                |> Enum.filter(fn {_k, v} -> match?({:result, _}, v) end)
+                |> Enum.map(fn {k, {:result, v}} -> {k, v} end)
+                |> Map.new()
 
               IO.inspect(dep_map, label: "Dependencies for task #{task["name"]}")
               Process.sleep(5)
 
               {:ok, _pid} =
-                SPE.WorkerSupervisor.start_task(job_id, task, dep_map)
+                  SPE.WorkerSupervisor.start_task(self(), job_id, task, dep_map)
 
               new_pending = remove_task(acc.pending_tasks, job_id, task)
               {:cont, %{acc | running_tasks: acc.running_tasks + 1, pending_tasks: new_pending}}
@@ -274,9 +271,9 @@ defmodule SPE.Server do
               do: :failed,
               else: :succeeded
 
-          IO.inspect({:broadcasting_final_result, job_id, status, final_results},
-            label: "FORCED FINAL RESULT"
-          )
+          # IO.inspect({:broadcasting_final_result, job_id, status, final_results},
+          #   label: "FORCED FINAL RESULT"
+          # )
 
           Phoenix.PubSub.local_broadcast(
             SPE.PubSub,
@@ -294,30 +291,6 @@ defmodule SPE.Server do
     final_state
   end
 
-  defp all_dependencies_completed?(task_name, dag, results, visited \\ MapSet.new()) do
-    # Get direct dependencies
-    direct_deps = Map.get(dag, task_name, [])
-
-    # Check if we've already visited this task (cycle detection)
-    if MapSet.member?(visited, task_name) do
-      false
-    else
-      new_visited = MapSet.put(visited, task_name)
-
-      Enum.all?(direct_deps, fn dep ->
-        # Recursively check transitive dependencies
-        case results[dep] do
-          # Direct dependency completed successfully
-          {:result, _} -> true
-          # Direct dependency not completed
-          nil -> false
-          # Direct dependency failed
-          _ -> false
-        end and
-          all_dependencies_completed?(dep, dag, results, new_visited)
-      end)
-    end
-  end
 
   defp check_job_completion(job_id, state) do
     job = state.jobs[job_id]

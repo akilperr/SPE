@@ -109,6 +109,7 @@ defmodule SpeTest do
     test "3 - fails if SPE is already started" do
       assert {:ok, _pid} = SPE.start_link([])
       assert {:error, {:already_started, _}} = SPE.start_link([])
+      Supervisor.stop(SPE)
     end
 
   end

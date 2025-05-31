@@ -5,7 +5,7 @@ defmodule SPE.TaskWorker do
     GenServer.start_link(__MODULE__, options, name: __MODULE__)
   end
 
-  def init(%{job_id: job_id, task: task, dependencies: dependencies}) do
+  def init(%{server_pid: server_pid, job_id: job_id, task: task, dependencies: dependencies}) do
     # Filter dependencies to only include the ones this task depends on
     Process.flag(:trap_exit, true)
 
@@ -25,19 +25,19 @@ defmodule SPE.TaskWorker do
         end)
       end
 
-    {:ok, %{job_id: job_id, task: task, task_ref: task_ref}}
+    {:ok, %{server_pid: server_pid, job_id: job_id, task: task, task_ref: task_ref}}
   end
 
   def handle_info({ref, result}, state) when ref == state.task_ref.ref do
     # Task completed normally
     Process.demonitor(ref, [:flush])
-    report_result(state.job_id, state.task["name"], result)
+    report_result(state.server_pid,state.job_id, state.task["name"], result)
     {:stop, :normal, state}
   end
 
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) when ref == state.task_ref.ref do
     # Task crashed
-    report_result(state.job_id, state.task["name"], {:failed, {:crashed, reason}})
+    report_result(state.server_pid,state.job_id, state.task["name"], {:failed, {:crashed, reason}})
     {:stop, :normal, state}
   end
 
@@ -55,22 +55,22 @@ defmodule SPE.TaskWorker do
   end
 end
 
-  defp report_result(job_id, task_name, result) do
-    IO.inspect({:report_result, job_id, task_name, result}, label: "TaskWorker")
+defp report_result(server_pid, job_id, task_name, result) do
+    IO.inspect({:report_result,server_pid, job_id, task_name, result}, label: "TaskWorker")
 
     case result do
       {:exit, :timeout} ->
-        send(SPE.Server, {:task_completed, job_id, task_name, {:failed, :timeout}})
+        send(server_pid, {:task_completed, job_id, task_name, {:failed, :timeout}})
 
       {:result, value} ->
-        send(SPE.Server, {:task_completed, job_id, task_name, {:result, value}})
+        send(server_pid, {:task_completed, job_id, task_name, {:result, value}})
 
       {:failed, reason} ->
-        send(SPE.Server, {:task_completed, job_id, task_name, {:failed, reason}})
+        send(server_pid, {:task_completed, job_id, task_name, {:failed, reason}})
 
       other ->
         send(
-          SPE.Server,
+          server_pid,
           {:task_completed, job_id, task_name, {:failed, {:unexpected_result, other}}}
         )
     end

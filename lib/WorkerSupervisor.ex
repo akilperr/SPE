@@ -14,8 +14,9 @@ defmodule SPE.WorkerSupervisor do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  def start_task(job_id, task, dependencies) do
+  def start_task(server_pid,job_id, task, dependencies) do
     task_args = %{
+      server_pid: server_pid,
       job_id: job_id,
       task: task,
       dependencies: dependencies
